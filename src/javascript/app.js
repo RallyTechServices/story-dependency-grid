@@ -3,14 +3,24 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'criteria_box'},
+        {xtype:'container',itemId:'criteria_box', layout: {type: 'hbox'}},
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
+    columnHeaders: {
+        FormattedID: 'ID',
+        Name: 'Name',
+        Project: 'Project',
+        Iteration: 'Iteration',
+        ScheduleState: 'State',
+        PFormattedID: 'Predecessor ID',
+        PName: 'Name',
+        PProject: 'Project',
+        PIteration: 'Iteration',
+        PScheduleState: 'State'
+        },
     launch: function() {
-        
-        //Hydrate Iterations
-        
+
         this.down('#criteria_box').add({
             xtype:'rallyreleasecombobox',
             fieldLabel: 'Release',
@@ -25,7 +35,17 @@ Ext.define('CustomApp', {
             }
         });
         
-        
+        this.down('#criteria_box').add({
+            xtype: 'rallybutton',
+            text: 'Export',
+            scope: this,
+            handler: this._exportData
+        });
+    },
+    _exportData: function(){
+        var file_name = 'story-dependencies.csv';
+        var text = Rally.technicalservices.FileUtilities.convertCustomStoreToCSVText(this.down('#grid-dependencies').getStore());
+        Rally.technicalservices.FileUtilities.saveTextAsFile(text,file_name);
     },
     _updateRelease: function(cb, newValue){
         this.logger.log('_updateRelease', cb, newValue);
@@ -35,22 +55,24 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: null
         });
+
         filters = filters.and(Ext.create('Rally.data.wsapi.Filter', {
             property: 'Release',
             operator: '=',
             value: newValue
         }));
         
-        var store = Ext.create('Rally.data.wsapi.Store', {
+       Ext.create('Rally.data.wsapi.Store', {
             model: 'HierarchicalRequirement',
-            fetch: ['FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
+            fetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
             autoLoad: true,
             filters:filters,
             listeners: {
                 scope: this,
                 load: function(store,data,success){
                     this.logger.log('_updateRelease store loaded', store, data, success);
-                    this._fetchPredecessorData(store, data).then({
+                    
+                    this._buildCustomDataStore(store, data).then({
                         scope: this,
                         success: this._updateDependencyGrid
                     });
@@ -69,50 +91,232 @@ Ext.define('CustomApp', {
             xtype: 'rallygrid',
             itemId: 'grid-dependencies',
             store: predecessor_data.store,
-            columnCfgs: predecessor_data.columns
+            columnCfgs: predecessor_data.columns,
+            viewConfig: {
+                stripeRows: false
+            }
         });
         
     },
+    createDetailLink: function(values){
+        return 'values';
+    },
     _getDependencyGridColumns: function(){
-        var tpl = '{PBlocked},{PIteration.Name}';
+        var tpl_formattedid = Ext.create('Rally.technicalservices.renderer.template.LinkTemplate', {
+            refField: '_ref',
+            textField: 'FormattedID',
+            dataType: 'userstory'
+        });
+        var tpl_predecessor_formattedid = Ext.create('Rally.technicalservices.renderer.template.LinkTemplate', {
+            refField: 'P_ref',
+            textField: 'PFormattedID',
+            dataType: 'userstory'
+        })
+        
         var columns = [{
-            text: 'FormattedID',
-            dataIndex: 'FormattedID'
+            scope: this,
+            xtype: 'templatecolumn',
+            text: this.columnHeaders['FormattedID'],
+            dataIndex: 'FormattedID',
+            tpl: tpl_formattedid
         },{
-            text: 'Name',
+            text: this.columnHeaders['Name'],
             dataIndex: 'Name',
             flex: 1
         },{
-            text: 'ScheduleState',
+            text: this.columnHeaders['ScheduleState'],
             dataIndex: 'ScheduleState'
         },{
-            text: 'Project',
+            text: this.columnHeaders['Iteration'],
+            dataIndex: 'Iteration',
+            renderer: function(v,m,r){                
+                return r.get('Iteration').Name;
+            }
+        },{
+            text: this.columnHeaders['Project'],
             dataIndex: 'Project',
             renderer: function(v,m,r){
                 return r.get('Project').Name;
             }
         },{
-            text: 'Predecessor FormattedID',
-            dataIndex: 'PFormattedID'
+            xtype: 'templatecolumn',
+            text: this.columnHeaders['PFormattedID'],
+            dataIndex: 'PFormattedID',
+            cls: '.tspredecessor',
+            tpl: tpl_predecessor_formattedid,
+            tdCls: 'tspredecessor'
         },{
-            text: 'Predecessor Name',
+            text: this.columnHeaders['PName'],
             dataIndex: 'PName',
-            flex: 1
+            flex: 1,
+            tdCls: "tspredecessor"
         },{
-            text: 'Predecessor Project',
+            text: this.columnHeaders['PIteration'],
+            dataIndex: 'PIteration',
+            renderer: function(v,m,r){
+                m.tdCls = "tspredecessor";
+                return r.get('PIteration').Name;
+            }
+        },{
+            text: this.columnHeaders['PProject'],
             dataIndex: 'PProject',
             renderer: function(v,m,r){
+                m.tdCls = "tspredecessor";
                 return r.get('Project').Name;
             }
+        },{
+            text: this.columnHeaders['PScheduleState'],
+            dataIndex: 'PScheduleState',
+            tdCls: "tspredecessor"
         },{
             scope: this,
             text:'Predecessor Status',
             dataIndex: 'PFormattedID',
             flex: 1,
+            tdCls: "tspredecessor",
             renderer: this._displayPredecessorStatus
         }];
         
         return columns;
+    },
+    _buildCustomDataStore: function(store, data){
+        this.logger.log('_buildCustomDataStore',store.fetch);        
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var story_fetch = store.fetch;
+        var predecessor_fetch = ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'];
+        var ignore_fields = ['Predecessors'];
+
+        var iteration_hash = {};  
+        var stories = []; 
+        var promises = [];
+        
+        var object_ids = []; //Array of ObjectIDs so we keep track of what has been loaded already
+        Ext.each(data, function(d){
+            if (!Ext.Array.contains(object_ids, d.get('ObjectID'))){
+                object_ids.push(d.get('ObjectID'));
+                promises.push(d.getCollection('Predecessors').load({
+                    fetch: predecessor_fetch,
+                    context: {project: null}
+                }));
+                var story = {};
+                Ext.each(story_fetch, function(field){
+                    story[field] = d.get(field);
+                },this);
+                story['_ref']=d.get('_ref'); //Need this for the renderer to work properly
+                stories.push(story);
+            }
+            if (!Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
+                var iid = d.get('Iteration')._ref;
+                iteration_hash[iid] = d.get('Iteration');  
+            }
+        },this);
+        
+        this._fetchPredecessorData(stories, promises,iteration_hash).then({
+            scope: this,
+            success: function(predecessor_data){
+                var predecessor_store = Ext.create('Rally.data.custom.Store',{
+                    data: predecessor_data
+                });
+                deferred.resolve({store: predecessor_store, columns: this._getDependencyGridColumns()});
+            }
+        });
+        return deferred;  
+    },
+    _fetchPredecessorData: function(stories, promises, iteration_hash){
+        this.logger.log('_fetchPredecessorData');
+        var deferred = Ext.create('Deft.Deferred');
+        var predecessor_data = []; 
+        if (promises.length == 0){
+            var predecessor_store = Ext.create('Rally.data.custom.Store',{
+                data: predecessor_data
+            });
+            deferred.resolve(predecessor_data);
+        } else {
+            var iterations_needed = [];
+            Deft.Promise.all(promises).then({
+                scope: this,
+                success: function(return_data){
+                    for (var i=0; i<stories.length; i++){ 
+                        for (var j=0; j<return_data[i].length; j++){
+                            var predecessor_rec = Ext.clone(stories[i]);
+                            
+                            predecessor_rec['PFormattedID'] = return_data[i][j].get('FormattedID');
+                            predecessor_rec['PName'] = return_data[i][j].get('Name');
+                            predecessor_rec['PProject'] = return_data[i][j].get('Project');
+                            predecessor_rec['PScheduleState'] = return_data[i][j].get('ScheduleState');
+                            predecessor_rec['PBlocked'] = return_data[i][j].get('Blocked');
+                            predecessor_rec['PIteration']=return_data[i][j].get('Iteration')._ref;
+                            predecessor_rec['P_ref'] = return_data[i][j].get('_ref');
+                            predecessor_data.push(predecessor_rec);
+                        }
+                    }
+                    
+                    this._fetchIterations(iterations_needed).then({
+                        scope: this,
+                        success: function(data){
+                            this.logger.log('_fetchIterations success', data);
+                            Ext.each(data, function(d){
+                                iteration_hash[d.get('Iteration')._ref] = d.get('Iteration');  
+                            },this);
+                            
+                            Ext.each(predecessor_data, function(rec){
+                                var iteration_ref = rec['PIteration'];
+                                rec['PIteration'] = iteration_hash[iteration_ref];
+                            },this);
+                            deferred.resolve(predecessor_data);
+                        },
+                        failure: function(error){
+                            Ext.each(predecessor_data, function(rec){
+                                var iteration_ref = rec['PIteration'];
+                                rec['PIteration'] = iteration_hash[iteration_ref];
+                            },this);
+                            deferred.resolve(predecessor_data);
+                            
+                        }
+                    });
+                }
+            });        
+        }
+        return deferred;  
+    },
+    _fetchIterations: function(iteration_refs){
+        this.logger.log('_fetchIterations', iteration_refs);
+        var deferred = Ext.create('Deft.Deferred');
+        
+        if (iteration_refs.length == 0){
+            deferred.resolve(iteration_refs);
+            return deferred; 
+        }
+        
+        var filters = null;
+        for (var i=0; i<iteration_refs.length; i++){
+            var filter = Ext.create('Rally.data.wsapi.Filter', {
+                property: '_ref',
+                value: iteration_refs[i]
+            });
+            if (i == 0){
+                filters = filter;
+            } else {
+                filters = filters.or(filter);
+            }
+        }
+        
+        Ext.create('Rally.data.wsapi.Store',{
+            model: 'Iteration',
+            context: {project: null},
+            fetch: ['StartDate','EndDate','Name','ObjectID'],
+            filters: filters,
+            autoLoad: true,
+            listeners: {
+                scope: this,
+                load: function(store, data, success){
+                    this.logger.log('fetchIteration Store Loaded', data, success);
+                    deferred.resolve(data);
+                }
+            }
+        });
+        return deferred; 
     },
     _displayPredecessorStatus: function(v, m, r){
         this.logger.log('_displayPredecessorStatus',v,m,r);
@@ -125,17 +329,10 @@ Ext.define('CustomApp', {
         var predecessor_iteration_end_date = Rally.util.DateTime.fromIsoString(r.get('PIteration').EndDate);
         var iteration_start_date = Rally.util.DateTime.fromIsoString(r.get('Iteration').StartDate); 
         
-        var predecessorHtml = '<div class="predecessor-container"><div class="predecessor-status"><div class="state-legend';
-        if (r.get('PBlocked')){
-            predecessorHtml += "-blocked";
-        }
-        predecessorHtml += '" title="' + predecessor_schedule_state + '">';
-        predecessorHtml += this.getStateAbbreviation(predecessor_schedule_state);
-        predecessorHtml += '</div></div><div class="predecessor">Waiting on <b>' + predecessor_project +
-        '</b> for <br/>' + r.get('PFormattedID') + '<br/><span class="statusDescription">';
+        var predecessorHtml = '<div class="predecessor-container"><div class="predecessor">Waiting on <b>' + predecessor_project +
+        '</b> for ' + r.get('PFormattedID') + '<br/><span class="statusDescription">';
         var warningImageHtml = '<img src="/slm/images/icon_alert_sm.gif" alt="Warning" title="Warning" /> ';
-        //that.createArtifactLink(predecessor)
-        //Display the status of the predecessor
+
         if (predecessor_iteraiton === null) {
             predecessorHtml += warningImageHtml + "Not yet scheduled";
         } else if (predecessor_schedule_state == "Accepted") {
@@ -149,88 +346,7 @@ Ext.define('CustomApp', {
         } else {
             predecessorHtml += "Scheduled for " + Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date);
         }
-        
-        //displayElement.innerHTML += predecessorHtml + '</span></div></div>';
         return  predecessorHtml + '</span></div></div>';
     },
-    _fetchPredecessorData: function(store, data){
-        this.logger.log('_fetchPredecessorData',store.fetch);
-        
-        var deferred = Ext.create('Deft.Deferred');
-        
-        var story_fetch = store.fetch;
-        var predecessor_fetch = ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'];
-        var ignore_fields = ['Predecessors','Iteration.StartDate'];
 
-        var iteration_hash = {};  
-        
-        var promises = [];
-        Ext.each(data, function(d){
-            console.log('iteration - ',d.get('Iteration'));
-            if (!Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
-                var iid = d.get('Iteration')._ref;
-                iteration_hash[iid] = d.get('Iteration');  
-            }
-            promises.push(d.getCollection('Predecessors').load({
-                fetch: predecessor_fetch,
-                context: {project: null}
-            }));
-        },this);
-
-        var predecessor_data = []; 
-        if (promises.length == 0){
-            
-            var predecessor_store = Ext.create('Rally.data.custom.Store',{
-                data: predecessor_data
-            });
-            deferred.resolve({store: predecessor_store, columns: this._getDependencyGridColumns()});
-        }
-        
-        var iterations_needed = [];
-        Deft.Promise.all(promises).then({
-            scope: this,
-            success: function(return_data){
-                for (var i=0; i<data.length; i++){
-                    console.log(data[i].get('FormattedID'),return_data[i]);
-                    for (var j=0; j<return_data[i].length; j++){
-                        var predecessor_rec = {};
-                        Ext.each(story_fetch, function(f){
-                            if (!Ext.Array.contains(ignore_fields,f)){
-                                predecessor_rec[f] = data[i].get(f);
-                            }
-                        });
-                        predecessor_rec['PFormattedID'] = return_data[i][j].get('FormattedID');
-                        predecessor_rec['PName'] = return_data[i][j].get('Name');
-                        predecessor_rec['PProject'] = return_data[i][j].get('Project');
-                        predecessor_rec['PScheduleState'] = return_data[i][j].get('ScheduleState');
-                        predecessor_rec['PBlocked'] = return_data[i][j].get('Blocked');
-                        
-                        var iteration_id = return_data[i][j].get('Iteration')._ref;
-                        if (iteration_hash[iteration_id]){
-                            predecessor_rec['PIteration']=iteration_hash[iteration_id];
-                        } else {
-                            if (!Ext.Array.contains(iterations_needed,iteration_id)){
-                                iterations_needed.push(iteration_id);
-                            }
-                        }
-                        predecessor_data.push(predecessor_rec);
-                    }
-                }
-                
-                if (iterations_needed.length > 0){
-                    console.log('iterations needed', iterations_needed,iteration_hash);
-                }
-                var predecessor_store = Ext.create('Rally.data.custom.Store',{
-                    data: predecessor_data
-                });
-                deferred.resolve({store: predecessor_store, columns: this._getDependencyGridColumns()});
-            }
-        });
-        return deferred;  
-    },
-    //Private helper function to get the abbreviation
-    //for the specified user story state
-    getStateAbbreviation: function(state) {
-        return state == "In-Progress" ? "P" : state.charAt(0);
-    }
 });
