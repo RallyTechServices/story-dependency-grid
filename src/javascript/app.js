@@ -206,7 +206,7 @@ Ext.define('CustomApp', {
                 story['_ref']=d.get('_ref'); //Need this for the renderer to work properly
                 stories.push(story);
             }
-            if (!Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
+            if (d.get('Iteration') && !Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
                 var iid = d.get('Iteration')._ref;
                 iteration_hash[iid] = d.get('Iteration');  
             }
