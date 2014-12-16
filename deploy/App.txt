@@ -3,11 +3,11 @@
 <head>
     <title>Story Dependency Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 16 2014 15:43:50 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 16 2014 15:55:46 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 16 2014 15:43:50 GMT-0800 (PST)";
-        var CHECKSUM = 11979722991;
+        var APP_BUILD_DATE = "Tue Dec 16 2014 15:55:46 GMT-0800 (PST)";
+        var CHECKSUM = 12006409561;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -539,7 +539,7 @@ Ext.define('CustomApp', {
                 story['_ref']=d.get('_ref'); //Need this for the renderer to work properly
                 stories.push(story);
             }
-            if (!Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
+            if (d.get('Iteration') && !Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
                 var iid = d.get('Iteration')._ref;
                 iteration_hash[iid] = d.get('Iteration');  
             }
