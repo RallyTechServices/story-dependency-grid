@@ -168,7 +168,7 @@ Ext.define('CustomApp', {
             dataIndex: 'PProject',
             renderer: function(v,m,r){
                 m.tdCls = "tspredecessor";
-                return r.get('Project').Name;
+                return r.get('PProject').Name;
             }
         },{
             text: this.columnHeaders['PScheduleState'],
