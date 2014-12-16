@@ -27,16 +27,29 @@ Ext.define('Rally.technicalservices.model.PredecessorStatus', {
         if (this.getStatusWarning().length > 0){
             return '';
         }
-        var pIterationEndDate = Rally.util.DateTime.fromIsoString(this.record.PIteration.EndDate);
-        return Ext.String.format("Scheduled for {0}\n",Rally.util.DateTime.formatWithDefault(pIterationEndDate));
+        
+        if (this.record.PIteration){
+            var pIterationEndDate = Rally.util.DateTime.fromIsoString(this.record.PIteration.EndDate);
+            return Ext.String.format("Scheduled for {0}\n",Rally.util.DateTime.formatWithDefault(pIterationEndDate));
+        }
+        
+        return Ext.String.format("Not Scheduled\n");
     },
     getStatusWarning: function(){
+        var pIterationEndDate = '';
+        if (this.record.PIteration){
+             pIterationEndDate = Rally.util.DateTime.fromIsoString(this.record.PIteration.EndDate);
+           
+        }
+        var storyStateDate = '';
+        if (this.record.Iteration){
+             storyStartDate = Rally.util.DateTime.fromIsoString(this.record.Iteration.StartDate);
+        }
         
-        var pIterationEndDate = Rally.util.DateTime.fromIsoString(this.record.PIteration.EndDate);
-        var storyStartDate = Rally.util.DateTime.fromIsoString(this.record.Iteration.StartDate);
+
         var status = '';
         
-        if (this.record.PIteration === null) {
+        if (this.record.PIteration === null || this.record.PIteration == undefined || this.record.Iteration === null || this.record.Iteration == undefined ) {
             status += "Warning:  Not yet scheduled\n";
         } else if (this.record.PScheduleState == "Accepted") {
             status += Ext.String.format("Accepted in {0} for {1}\n",this.record.PIteration.Name,Rally.util.DateTime.formatWithDefault(pIterationEndDate));
