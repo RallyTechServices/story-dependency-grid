@@ -3,11 +3,11 @@
 <head>
     <title>Story Dependency Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 16 2014 15:22:43 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 16 2014 15:28:08 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 16 2014 15:22:43 GMT-0800 (PST)";
-        var CHECKSUM = 12066493894;
+        var APP_BUILD_DATE = "Tue Dec 16 2014 15:28:08 GMT-0800 (PST)";
+        var CHECKSUM = 12067825744;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -501,7 +501,7 @@ Ext.define('CustomApp', {
             dataIndex: 'PProject',
             renderer: function(v,m,r){
                 m.tdCls = "tspredecessor";
-                return r.get('Project').Name;
+                return r.get('PProject').Name;
             }
         },{
             text: this.columnHeaders['PScheduleState'],
