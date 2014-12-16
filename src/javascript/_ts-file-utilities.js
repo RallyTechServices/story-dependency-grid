@@ -31,8 +31,24 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     {
         document.body.removeChild(event.target);
     },
-    convertCustomStoreToCSVText: function(store){
-        console.log(store);
-        return 'fred';
+    convertCustomStoreToCSVText: function(store, requestedFieldHash){
+        console.log(store, store.getData());
+        var text = '';
+        Ext.each(Object.keys(requestedFieldHash), function(key){
+            text += requestedFieldHash[key] + ',';
+        });
+        text = text.replace(/,$/,'\n');
+        
+        Ext.each(store.getData().items, function(d){
+            Ext.each(Object.keys(requestedFieldHash), function(key){
+                if (typeof d.get(key) === 'object'){
+                    text += Ext.String.format("\"{0}\",",d.get(key).Name );                    
+                } else {
+                    text += Ext.String.format("\"{0}\",",d.get(key) );                    
+                }
+            },this);
+            text = text.replace(/,$/,'\n');
+        },this);
+        return text;
     }
 });

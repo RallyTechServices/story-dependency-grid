@@ -3,11 +3,11 @@
 <head>
     <title>Story Dependency Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 16 2014 12:48:41 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 16 2014 14:43:17 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 16 2014 12:48:41 GMT-0800 (PST)";
-        var CHECKSUM = 9734494191;
+        var APP_BUILD_DATE = "Tue Dec 16 2014 14:43:17 GMT-0800 (PST)";
+        var CHECKSUM = 11415478706;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -171,9 +171,88 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     {
         document.body.removeChild(event.target);
     },
-    convertCustomStoreToCSVText: function(store){
-        console.log(store);
-        return 'fred';
+    convertCustomStoreToCSVText: function(store, requestedFieldHash){
+        console.log(store, store.getData());
+        var text = '';
+        Ext.each(Object.keys(requestedFieldHash), function(key){
+            text += requestedFieldHash[key] + ',';
+        });
+        text = text.replace(/,$/,'\n');
+        
+        Ext.each(store.getData().items, function(d){
+            Ext.each(Object.keys(requestedFieldHash), function(key){
+                if (typeof d.get(key) === 'object'){
+                    text += Ext.String.format("\"{0}\",",d.get(key).Name );                    
+                } else {
+                    text += Ext.String.format("\"{0}\",",d.get(key) );                    
+                }
+            },this);
+            text = text.replace(/,$/,'\n');
+        },this);
+        return text;
+    }
+});
+Ext.define('Rally.technicalservices.model.PredecessorStatus', {
+   // extend:  'Ext.data.Model',
+    /*
+     * Record needs to contain:  
+     *   FormattedID
+     *   Name
+     *   Project {Name}
+     *   Iteration {StartDate, EndDate, Name}
+     *   ScheduleState
+     *   PFormattedID
+     *   PName
+     *   PProject {Name}
+     *   PIteration {Name, StartDate, EndDate}
+     *   PScheduleState
+     * 
+     */
+    record: null,
+    
+    constructor: function(config){
+        this.record = config.record;  
+    },
+    
+    getStatusSummary: function(){
+        return Ext.String.format("Waiting on {0} for {1}\n", this.record.PProject.Name, this.record.PFormattedID);
+    },
+    getStatusInfo: function(){
+        if (this.getStatusWarning().length > 0){
+            return '';
+        }
+        var pIterationEndDate = Rally.util.DateTime.fromIsoString(this.record.PIteration.EndDate);
+        return Ext.String.format("Scheduled for {0}\n",Rally.util.DateTime.formatWithDefault(pIterationEndDate));
+    },
+    getStatusWarning: function(){
+        
+        var pIterationEndDate = Rally.util.DateTime.fromIsoString(this.record.PIteration.EndDate);
+        var storyStartDate = Rally.util.DateTime.fromIsoString(this.record.Iteration.StartDate);
+        var status = '';
+        
+        if (this.record.PIteration === null) {
+            status += "Warning:  Not yet scheduled\n";
+        } else if (this.record.PScheduleState == "Accepted") {
+            status += Ext.String.format("Accepted in {0} for {1}\n",this.record.PIteration.Name,Rally.util.DateTime.formatWithDefault(pIterationEndDate));
+        } else if (this.record.PBlocked) {
+            status += "Warning: Blocked\n";
+        } else if (pIterationEndDate > storyStartDate){
+            status += Ext.String.format("Warning: Scheduled for {0} -- too late.\n",Rally.util.DateTime.formatWithDefault(pIterationEndDate));
+        }
+        return status; 
+    },
+    getExportableStatus: function(){
+        //strip out \n and append quotes.  
+        var exportable_status = Ext.String.format("{0} {1} {2}",this.getStatusSummary(), this.getStatusWarning() , this.getStatusInfo());
+        return exportable_status.replace(/\n/g,"");
+    },
+    statics:{
+        getStatusTpl: function(){
+            return '<div class="predecessor-container"><div class="predecessor">{PStatusSummary}<br>' +
+            '<span class="statusDescription">{PStatusInfo}' + 
+            '<tpl if={PStatusWarning}><img src="/slm/images/icon_alert_sm.gif" alt="Warning" title="Warning" />{PStatusWarning}</tpl>' +
+            '</span></div></div>';
+        }
     }
 });
  Ext.define('Rally.technicalservices.renderer.template.LinkTemplate', {
@@ -187,7 +266,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         showIcon: true,
 
         constructor: function(config) {
-            console.log('cfg',config);
             return this.callParent([
                 '<span class="formatted-id-template">{[this.createIcon(values)]}{[this.createDetailLink(values)]}</span>',
                 config
@@ -249,6 +327,8 @@ Ext.define('CustomApp', {
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
+    storeFetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
+    predecessorFetch: ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'],
     columnHeaders: {
         FormattedID: 'ID',
         Name: 'Name',
@@ -259,7 +339,8 @@ Ext.define('CustomApp', {
         PName: 'Name',
         PProject: 'Project',
         PIteration: 'Iteration',
-        PScheduleState: 'State'
+        PScheduleState: 'State',
+        PStatus: 'Status'
         },
     launch: function() {
 
@@ -286,7 +367,7 @@ Ext.define('CustomApp', {
     },
     _exportData: function(){
         var file_name = 'story-dependencies.csv';
-        var text = Rally.technicalservices.FileUtilities.convertCustomStoreToCSVText(this.down('#grid-dependencies').getStore());
+        var text = Rally.technicalservices.FileUtilities.convertCustomStoreToCSVText(this.down('#grid-dependencies').getStore(), this.columnHeaders);
         Rally.technicalservices.FileUtilities.saveTextAsFile(text,file_name);
     },
     _updateRelease: function(cb, newValue){
@@ -306,7 +387,7 @@ Ext.define('CustomApp', {
         
        Ext.create('Rally.data.wsapi.Store', {
             model: 'HierarchicalRequirement',
-            fetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
+            fetch: this.storeFetch,
             autoLoad: true,
             filters:filters,
             listeners: {
@@ -339,9 +420,6 @@ Ext.define('CustomApp', {
             }
         });
         
-    },
-    createDetailLink: function(values){
-        return 'values';
     },
     _getDependencyGridColumns: function(){
         var tpl_formattedid = Ext.create('Rally.technicalservices.renderer.template.LinkTemplate', {
@@ -384,7 +462,6 @@ Ext.define('CustomApp', {
             xtype: 'templatecolumn',
             text: this.columnHeaders['PFormattedID'],
             dataIndex: 'PFormattedID',
-            cls: '.tspredecessor',
             tpl: tpl_predecessor_formattedid,
             tdCls: 'tspredecessor'
         },{
@@ -412,22 +489,21 @@ Ext.define('CustomApp', {
             tdCls: "tspredecessor"
         },{
             scope: this,
-            text:'Predecessor Status',
-            dataIndex: 'PFormattedID',
+            xtype: 'templatecolumn',
+            text: this.columnHeaders['PStatus'],
+            dataIndex: 'PStatus',
             flex: 1,
             tdCls: "tspredecessor",
-            renderer: this._displayPredecessorStatus
+            tpl: Rally.technicalservices.model.PredecessorStatus.getStatusTpl()
         }];
-        
         return columns;
     },
     _buildCustomDataStore: function(store, data){
         this.logger.log('_buildCustomDataStore',store.fetch);        
         var deferred = Ext.create('Deft.Deferred');
         
-        var story_fetch = store.fetch;
-        var predecessor_fetch = ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'];
-        var ignore_fields = ['Predecessors'];
+        var story_fetch = this.storeFetch;
+        var predecessor_fetch = this.predecessorFetch;
 
         var iteration_hash = {};  
         var stories = []; 
@@ -457,6 +533,15 @@ Ext.define('CustomApp', {
         this._fetchPredecessorData(stories, promises,iteration_hash).then({
             scope: this,
             success: function(predecessor_data){
+                
+                Ext.each(predecessor_data, function(d){
+                    var pd = Ext.create('Rally.technicalservices.model.PredecessorStatus', {record: d});
+                    d['PStatusSummary'] = pd.getStatusSummary();
+                    d['PStatusInfo'] = pd.getStatusInfo();
+                    d['PStatusWarning'] = pd.getStatusWarning();
+                    d['PStatus'] = pd.getExportableStatus();
+                },this);
+                
                 var predecessor_store = Ext.create('Rally.data.custom.Store',{
                     data: predecessor_data
                 });
@@ -559,38 +644,7 @@ Ext.define('CustomApp', {
             }
         });
         return deferred; 
-    },
-    _displayPredecessorStatus: function(v, m, r){
-        this.logger.log('_displayPredecessorStatus',v,m,r);
-        
-        var predecessor_schedule_state = r.get('PScheduleState');
-        var predecessor_project= r.get('PProject').Name;
-        var predecessor_iteraiton = r.get('PIteration');
-        var predecessor_blocked = r.get('PBlocked');
-        var predecessor_iteration_start_date = Rally.util.DateTime.fromIsoString(r.get('PIteration').StartDate);
-        var predecessor_iteration_end_date = Rally.util.DateTime.fromIsoString(r.get('PIteration').EndDate);
-        var iteration_start_date = Rally.util.DateTime.fromIsoString(r.get('Iteration').StartDate); 
-        
-        var predecessorHtml = '<div class="predecessor-container"><div class="predecessor">Waiting on <b>' + predecessor_project +
-        '</b> for ' + r.get('PFormattedID') + '<br/><span class="statusDescription">';
-        var warningImageHtml = '<img src="/slm/images/icon_alert_sm.gif" alt="Warning" title="Warning" /> ';
-
-        if (predecessor_iteraiton === null) {
-            predecessorHtml += warningImageHtml + "Not yet scheduled";
-        } else if (predecessor_schedule_state == "Accepted") {
-            predecessorHtml += "Accepted in " + predecessor_iteraiton.Name +
-                    " for " + Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date);
-        } else if (predecessor_blocked) {
-            predecessorHtml += warningImageHtml + "Blocked";
-        } else if (predecessor_iteration_end_date > iteration_start_date){
-            predecessorHtml += warningImageHtml + "Scheduled for " +
-            Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date) + " - too late";
-        } else {
-            predecessorHtml += "Scheduled for " + Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date);
-        }
-        return  predecessorHtml + '</span></div></div>';
-    },
-
+    }
 });
             
                Rally.launchApp('CustomApp', {

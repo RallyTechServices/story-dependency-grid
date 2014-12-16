@@ -7,6 +7,8 @@ Ext.define('CustomApp', {
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
+    storeFetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
+    predecessorFetch: ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'],
     columnHeaders: {
         FormattedID: 'ID',
         Name: 'Name',
@@ -17,7 +19,8 @@ Ext.define('CustomApp', {
         PName: 'Name',
         PProject: 'Project',
         PIteration: 'Iteration',
-        PScheduleState: 'State'
+        PScheduleState: 'State',
+        PStatus: 'Status'
         },
     launch: function() {
 
@@ -44,7 +47,7 @@ Ext.define('CustomApp', {
     },
     _exportData: function(){
         var file_name = 'story-dependencies.csv';
-        var text = Rally.technicalservices.FileUtilities.convertCustomStoreToCSVText(this.down('#grid-dependencies').getStore());
+        var text = Rally.technicalservices.FileUtilities.convertCustomStoreToCSVText(this.down('#grid-dependencies').getStore(), this.columnHeaders);
         Rally.technicalservices.FileUtilities.saveTextAsFile(text,file_name);
     },
     _updateRelease: function(cb, newValue){
@@ -64,7 +67,7 @@ Ext.define('CustomApp', {
         
        Ext.create('Rally.data.wsapi.Store', {
             model: 'HierarchicalRequirement',
-            fetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
+            fetch: this.storeFetch,
             autoLoad: true,
             filters:filters,
             listeners: {
@@ -97,9 +100,6 @@ Ext.define('CustomApp', {
             }
         });
         
-    },
-    createDetailLink: function(values){
-        return 'values';
     },
     _getDependencyGridColumns: function(){
         var tpl_formattedid = Ext.create('Rally.technicalservices.renderer.template.LinkTemplate', {
@@ -142,7 +142,6 @@ Ext.define('CustomApp', {
             xtype: 'templatecolumn',
             text: this.columnHeaders['PFormattedID'],
             dataIndex: 'PFormattedID',
-            cls: '.tspredecessor',
             tpl: tpl_predecessor_formattedid,
             tdCls: 'tspredecessor'
         },{
@@ -170,22 +169,21 @@ Ext.define('CustomApp', {
             tdCls: "tspredecessor"
         },{
             scope: this,
-            text:'Predecessor Status',
-            dataIndex: 'PFormattedID',
+            xtype: 'templatecolumn',
+            text: this.columnHeaders['PStatus'],
+            dataIndex: 'PStatus',
             flex: 1,
             tdCls: "tspredecessor",
-            renderer: this._displayPredecessorStatus
+            tpl: Rally.technicalservices.model.PredecessorStatus.getStatusTpl()
         }];
-        
         return columns;
     },
     _buildCustomDataStore: function(store, data){
         this.logger.log('_buildCustomDataStore',store.fetch);        
         var deferred = Ext.create('Deft.Deferred');
         
-        var story_fetch = store.fetch;
-        var predecessor_fetch = ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'];
-        var ignore_fields = ['Predecessors'];
+        var story_fetch = this.storeFetch;
+        var predecessor_fetch = this.predecessorFetch;
 
         var iteration_hash = {};  
         var stories = []; 
@@ -215,6 +213,15 @@ Ext.define('CustomApp', {
         this._fetchPredecessorData(stories, promises,iteration_hash).then({
             scope: this,
             success: function(predecessor_data){
+                
+                Ext.each(predecessor_data, function(d){
+                    var pd = Ext.create('Rally.technicalservices.model.PredecessorStatus', {record: d});
+                    d['PStatusSummary'] = pd.getStatusSummary();
+                    d['PStatusInfo'] = pd.getStatusInfo();
+                    d['PStatusWarning'] = pd.getStatusWarning();
+                    d['PStatus'] = pd.getExportableStatus();
+                },this);
+                
                 var predecessor_store = Ext.create('Rally.data.custom.Store',{
                     data: predecessor_data
                 });
@@ -317,36 +324,5 @@ Ext.define('CustomApp', {
             }
         });
         return deferred; 
-    },
-    _displayPredecessorStatus: function(v, m, r){
-        this.logger.log('_displayPredecessorStatus',v,m,r);
-        
-        var predecessor_schedule_state = r.get('PScheduleState');
-        var predecessor_project= r.get('PProject').Name;
-        var predecessor_iteraiton = r.get('PIteration');
-        var predecessor_blocked = r.get('PBlocked');
-        var predecessor_iteration_start_date = Rally.util.DateTime.fromIsoString(r.get('PIteration').StartDate);
-        var predecessor_iteration_end_date = Rally.util.DateTime.fromIsoString(r.get('PIteration').EndDate);
-        var iteration_start_date = Rally.util.DateTime.fromIsoString(r.get('Iteration').StartDate); 
-        
-        var predecessorHtml = '<div class="predecessor-container"><div class="predecessor">Waiting on <b>' + predecessor_project +
-        '</b> for ' + r.get('PFormattedID') + '<br/><span class="statusDescription">';
-        var warningImageHtml = '<img src="/slm/images/icon_alert_sm.gif" alt="Warning" title="Warning" /> ';
-
-        if (predecessor_iteraiton === null) {
-            predecessorHtml += warningImageHtml + "Not yet scheduled";
-        } else if (predecessor_schedule_state == "Accepted") {
-            predecessorHtml += "Accepted in " + predecessor_iteraiton.Name +
-                    " for " + Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date);
-        } else if (predecessor_blocked) {
-            predecessorHtml += warningImageHtml + "Blocked";
-        } else if (predecessor_iteration_end_date > iteration_start_date){
-            predecessorHtml += warningImageHtml + "Scheduled for " +
-            Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date) + " - too late";
-        } else {
-            predecessorHtml += "Scheduled for " + Rally.util.DateTime.formatWithDefault(predecessor_iteration_end_date);
-        }
-        return  predecessorHtml + '</span></div></div>';
-    },
-
+    }
 });

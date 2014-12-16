@@ -9,7 +9,6 @@
         showIcon: true,
 
         constructor: function(config) {
-            console.log('cfg',config);
             return this.callParent([
                 '<span class="formatted-id-template">{[this.createIcon(values)]}{[this.createDetailLink(values)]}</span>',
                 config
