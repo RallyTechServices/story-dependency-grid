@@ -3,11 +3,11 @@
 <head>
     <title>Story Dependency Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 16 2014 15:28:08 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 16 2014 15:43:50 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 16 2014 15:28:08 GMT-0800 (PST)";
-        var CHECKSUM = 12067825744;
+        var APP_BUILD_DATE = "Tue Dec 16 2014 15:43:50 GMT-0800 (PST)";
+        var CHECKSUM = 11979722991;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -363,7 +363,7 @@ Ext.define('CustomApp', {
             labelAlign: 'right',
             width: 400,
             storeConfig: {
-                context: {projectScopeDown: true}
+                context: {projectScopeDown: false}
             },
             listeners: {
                 scope: this,
@@ -391,12 +391,7 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: null
         });
-
-        filters = filters.and(Ext.create('Rally.data.wsapi.Filter', {
-            property: 'Release',
-            operator: '=',
-            value: newValue
-        }));
+        filters = filters.and(cb.getQueryFromSelected());
         
        Ext.create('Rally.data.wsapi.Store', {
             model: 'HierarchicalRequirement',
