@@ -3,7 +3,7 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'criteria_box', layout: {type: 'hbox'}},
+        {xtype:'container',itemId:'criteria_box', layout: {type: 'hbox'}, padding: 10},
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
@@ -130,7 +130,10 @@ Ext.define('CustomApp', {
             text: this.columnHeaders['Iteration'],
             dataIndex: 'Iteration',
             renderer: function(v,m,r){                
-                return r.get('Iteration').Name;
+                if (r.get('Iteration')){
+                    return r.get('Iteration').Name;
+                }
+                return '';
             }
         },{
             text: this.columnHeaders['Project'],
@@ -154,7 +157,11 @@ Ext.define('CustomApp', {
             dataIndex: 'PIteration',
             renderer: function(v,m,r){
                 m.tdCls = "tspredecessor";
-                return r.get('PIteration').Name;
+                if (r.get('PIteration')){
+                    return r.get('PIteration').Name;
+                }
+                return '';
+                
             }
         },{
             text: this.columnHeaders['PProject'],
@@ -253,7 +260,9 @@ Ext.define('CustomApp', {
                             predecessor_rec['PProject'] = return_data[i][j].get('Project');
                             predecessor_rec['PScheduleState'] = return_data[i][j].get('ScheduleState');
                             predecessor_rec['PBlocked'] = return_data[i][j].get('Blocked');
-                            predecessor_rec['PIteration']=return_data[i][j].get('Iteration')._ref;
+                            if (return_data[i][j].get('Iteration')) {
+                                predecessor_rec['PIteration']=return_data[i][j].get('Iteration')._ref;                                
+                            }
                             predecessor_rec['P_ref'] = return_data[i][j].get('_ref');
                             predecessor_data.push(predecessor_rec);
                         }
@@ -264,19 +273,26 @@ Ext.define('CustomApp', {
                         success: function(data){
                             this.logger.log('_fetchIterations success', data);
                             Ext.each(data, function(d){
-                                iteration_hash[d.get('Iteration')._ref] = d.get('Iteration');  
+                                if (d.get('Iteration')){
+                                    iteration_hash[d.get('Iteration')._ref] = d.get('Iteration');                                      
+                                }
                             },this);
                             
                             Ext.each(predecessor_data, function(rec){
                                 var iteration_ref = rec['PIteration'];
-                                rec['PIteration'] = iteration_hash[iteration_ref];
+                                if (iteration_ref){
+                                    rec['PIteration'] = iteration_hash[iteration_ref];
+                                }
+                                
                             },this);
                             deferred.resolve(predecessor_data);
                         },
                         failure: function(error){
                             Ext.each(predecessor_data, function(rec){
                                 var iteration_ref = rec['PIteration'];
-                                rec['PIteration'] = iteration_hash[iteration_ref];
+                                if (iteration_ref){
+                                    rec['PIteration'] = iteration_hash[iteration_ref];
+                                }
                             },this);
                             deferred.resolve(predecessor_data);
                             
