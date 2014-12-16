@@ -3,10 +3,10 @@
 <head>
     <title>Story Dependency Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Dec 15 2014 16:19:12 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Dec 15 2014 16:22:15 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Dec 15 2014 16:19:12 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Mon Dec 15 2014 16:22:15 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -220,7 +220,8 @@ Ext.define('CustomApp', {
             dataIndex: 'FormattedID'
         },{
             text: 'Name',
-            dataIndex: 'Name'
+            dataIndex: 'Name',
+            flex: 1
         },{
             text: 'ScheduleState',
             dataIndex: 'ScheduleState'
@@ -235,7 +236,8 @@ Ext.define('CustomApp', {
             dataIndex: 'PFormattedID'
         },{
             text: 'Predecessor Name',
-            dataIndex: 'PName'
+            dataIndex: 'PName',
+            flex: 1
         },{
             text: 'Predecessor Project',
             dataIndex: 'PProject',
@@ -246,6 +248,7 @@ Ext.define('CustomApp', {
             scope: this,
             text:'Predecessor Status',
             dataIndex: 'PFormattedID',
+            flex: 1,
             renderer: this._displayPredecessorStatus
         }];
         

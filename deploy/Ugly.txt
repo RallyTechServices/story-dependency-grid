@@ -3,10 +3,10 @@
 <head>
     <title>Story Dependency Grid</title>
     <!--  (c) 2013 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Dec 15 2014 16:19:12 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Dec 15 2014 16:22:15 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Dec 15 2014 16:19:12 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Mon Dec 15 2014 16:22:15 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     

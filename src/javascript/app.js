@@ -80,7 +80,8 @@ Ext.define('CustomApp', {
             dataIndex: 'FormattedID'
         },{
             text: 'Name',
-            dataIndex: 'Name'
+            dataIndex: 'Name',
+            flex: 1
         },{
             text: 'ScheduleState',
             dataIndex: 'ScheduleState'
@@ -95,7 +96,8 @@ Ext.define('CustomApp', {
             dataIndex: 'PFormattedID'
         },{
             text: 'Predecessor Name',
-            dataIndex: 'PName'
+            dataIndex: 'PName',
+            flex: 1
         },{
             text: 'Predecessor Project',
             dataIndex: 'PProject',
@@ -106,6 +108,7 @@ Ext.define('CustomApp', {
             scope: this,
             text:'Predecessor Status',
             dataIndex: 'PFormattedID',
+            flex: 1,
             renderer: this._displayPredecessorStatus
         }];
         
