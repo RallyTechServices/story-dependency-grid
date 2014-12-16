@@ -30,7 +30,7 @@ Ext.define('CustomApp', {
             labelAlign: 'right',
             width: 400,
             storeConfig: {
-                context: {projectScopeDown: true}
+                context: {projectScopeDown: false}
             },
             listeners: {
                 scope: this,
@@ -58,12 +58,7 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: null
         });
-
-        filters = filters.and(Ext.create('Rally.data.wsapi.Filter', {
-            property: 'Release',
-            operator: '=',
-            value: newValue
-        }));
+        filters = filters.and(cb.getQueryFromSelected());
         
        Ext.create('Rally.data.wsapi.Store', {
             model: 'HierarchicalRequirement',
