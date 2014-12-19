@@ -47,7 +47,7 @@ Ext.define('CustomApp', {
     },
     _exportData: function(){
         var file_name = 'story-dependencies.csv';
-        var text = Rally.technicalservices.FileUtilities.convertCustomStoreToCSVText(this.down('#grid-dependencies').getStore(), this.columnHeaders);
+        var text = Rally.technicalservices.FileUtilities.convertDataArrayToCSVText(this.exportData, this.columnHeaders);
         Rally.technicalservices.FileUtilities.saveTextAsFile(text,file_name);
     },
     _updateRelease: function(cb, newValue){
@@ -221,8 +221,10 @@ Ext.define('CustomApp', {
                 },this);
                 
                 var predecessor_store = Ext.create('Rally.data.custom.Store',{
-                    data: predecessor_data
+                    data: predecessor_data,
+                    //pageSize: 200
                 });
+                this.exportData = predecessor_data;
                 deferred.resolve({store: predecessor_store, columns: this._getDependencyGridColumns()});
             }
         });
