@@ -8,7 +8,7 @@ Ext.define('CustomApp', {
         {xtype:'tsinfolink'}
     ],
     storeFetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
-    predecessorFetch: ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration'],
+    predecessorFetch: ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration','StartDate','EndDate'],
     columnHeaders: {
         FormattedID: 'ID',
         Name: 'Name',
@@ -187,7 +187,6 @@ Ext.define('CustomApp', {
         var story_fetch = this.storeFetch;
         var predecessor_fetch = this.predecessorFetch;
 
-        var iteration_hash = {};  
         var stories = []; 
         var promises = [];
         
@@ -195,10 +194,11 @@ Ext.define('CustomApp', {
         Ext.each(data, function(d){
             if (!Ext.Array.contains(object_ids, d.get('ObjectID'))){
                 object_ids.push(d.get('ObjectID'));
-                promises.push(d.getCollection('Predecessors').load({
+                var store = d.getCollection('Predecessors',{
                     fetch: predecessor_fetch,
                     context: {project: null}
-                }));
+                });
+                promises.push(store.load());
                 var story = {};
                 Ext.each(story_fetch, function(field){
                     story[field] = d.get(field);
@@ -206,13 +206,9 @@ Ext.define('CustomApp', {
                 story['_ref']=d.get('_ref'); //Need this for the renderer to work properly
                 stories.push(story);
             }
-            if (d.get('Iteration') && !Ext.Array.contains(Object.keys(iteration_hash),d.get('Iteration')._ref)){
-                var iid = d.get('Iteration')._ref;
-                iteration_hash[iid] = d.get('Iteration');  
-            }
         },this);
         
-        this._fetchPredecessorData(stories, promises,iteration_hash).then({
+        this._fetchPredecessorData(stories, promises).then({
             scope: this,
             success: function(predecessor_data){
                 
@@ -232,7 +228,7 @@ Ext.define('CustomApp', {
         });
         return deferred;  
     },
-    _fetchPredecessorData: function(stories, promises, iteration_hash){
+    _fetchPredecessorData: function(stories, promises){
         this.logger.log('_fetchPredecessorData');
         var deferred = Ext.create('Deft.Deferred');
         var predecessor_data = []; 
@@ -246,6 +242,8 @@ Ext.define('CustomApp', {
             Deft.Promise.all(promises).then({
                 scope: this,
                 success: function(return_data){
+                    this.logger.log('_fetchPredecessorData promises returned', return_data);
+                    
                     for (var i=0; i<stories.length; i++){ 
                         for (var j=0; j<return_data[i].length; j++){
                             var predecessor_rec = Ext.clone(stories[i]);
@@ -256,84 +254,20 @@ Ext.define('CustomApp', {
                             predecessor_rec['PScheduleState'] = return_data[i][j].get('ScheduleState');
                             predecessor_rec['PBlocked'] = return_data[i][j].get('Blocked');
                             if (return_data[i][j].get('Iteration')) {
-                                predecessor_rec['PIteration']=return_data[i][j].get('Iteration')._ref;                                
+                                predecessor_rec['PIteration']={
+                                        Name: return_data[i][j].get('Iteration').Name,
+                                        StartDate: return_data[i][j].get('Iteration').StartDate,
+                                        EndDate: return_data[i][j].get('Iteration').EndDate
+                                 }  
                             }
                             predecessor_rec['P_ref'] = return_data[i][j].get('_ref');
                             predecessor_data.push(predecessor_rec);
                         }
                     }
-                    
-                    this._fetchIterations(iterations_needed).then({
-                        scope: this,
-                        success: function(data){
-                            this.logger.log('_fetchIterations success', data);
-                            Ext.each(data, function(d){
-                                if (d.get('Iteration')){
-                                    iteration_hash[d.get('Iteration')._ref] = d.get('Iteration');                                      
-                                }
-                            },this);
-                            
-                            Ext.each(predecessor_data, function(rec){
-                                var iteration_ref = rec['PIteration'];
-                                if (iteration_ref){
-                                    rec['PIteration'] = iteration_hash[iteration_ref];
-                                }
-                                
-                            },this);
-                            deferred.resolve(predecessor_data);
-                        },
-                        failure: function(error){
-                            Ext.each(predecessor_data, function(rec){
-                                var iteration_ref = rec['PIteration'];
-                                if (iteration_ref){
-                                    rec['PIteration'] = iteration_hash[iteration_ref];
-                                }
-                            },this);
-                            deferred.resolve(predecessor_data);
-                            
-                        }
-                    });
+                    deferred.resolve(predecessor_data);
                 }
             });        
         }
         return deferred;  
-    },
-    _fetchIterations: function(iteration_refs){
-        this.logger.log('_fetchIterations', iteration_refs);
-        var deferred = Ext.create('Deft.Deferred');
-        
-        if (iteration_refs.length == 0){
-            deferred.resolve(iteration_refs);
-            return deferred; 
-        }
-        
-        var filters = null;
-        for (var i=0; i<iteration_refs.length; i++){
-            var filter = Ext.create('Rally.data.wsapi.Filter', {
-                property: '_ref',
-                value: iteration_refs[i]
-            });
-            if (i == 0){
-                filters = filter;
-            } else {
-                filters = filters.or(filter);
-            }
-        }
-        
-        Ext.create('Rally.data.wsapi.Store',{
-            model: 'Iteration',
-            context: {project: null},
-            fetch: ['StartDate','EndDate','Name','ObjectID'],
-            filters: filters,
-            autoLoad: true,
-            listeners: {
-                scope: this,
-                load: function(store, data, success){
-                    this.logger.log('fetchIteration Store Loaded', data, success);
-                    deferred.resolve(data);
-                }
-            }
-        });
-        return deferred; 
     }
 });
