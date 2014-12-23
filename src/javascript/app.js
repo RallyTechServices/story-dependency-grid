@@ -42,7 +42,9 @@ Ext.define('CustomApp', {
         
         this.down('#criteria_box').add({
             xtype: 'rallybutton',
+            itemId: 'btn-export',
             text: 'Export',
+            disabled: true,
             scope: this,
             handler: this._exportData
         });
@@ -54,7 +56,9 @@ Ext.define('CustomApp', {
     },
     _updateRelease: function(cb, newValue){
         this.logger.log('_updateRelease', cb, newValue);
-         
+        this.setLoading(true); 
+        this.down('#btn-export').setDisabled(true);
+
         var filters = Ext.create('Rally.data.wsapi.Filter', {
             property: 'Predecessors.ObjectID',
             operator: '!=',
@@ -74,7 +78,15 @@ Ext.define('CustomApp', {
                     
                     this._buildCustomDataStore(store, data).then({
                         scope: this,
-                        success: this._updateDependencyGrid
+                        success: function(predecessor_data){ 
+                            this._updateDependencyGrid(predecessor_data); 
+                            this.setLoading(false);
+                            this.down('#btn-export').setDisabled(false);
+                            }, 
+                        failure: function(error){
+                            this.logger.log('_updateRelease _buildCustomDataStore failed');
+                            this.setLoading(false);
+                        }
                     });
                 }
             }
@@ -113,6 +125,7 @@ Ext.define('CustomApp', {
         var columns = [{
             text: 'Feature ID',
             dataIndex: 'Feature',
+            width: 40,
             renderer: function(v,m,r){                
                 if (r.get('Feature')){
                     return r.get('Feature').FormattedID;
@@ -122,6 +135,7 @@ Ext.define('CustomApp', {
         },{
             scope: this,
             xtype: 'templatecolumn',
+            width: 75,
             text: this.columnHeaders['FormattedID'],
             dataIndex: 'FormattedID',
             tpl: tpl_formattedid
@@ -150,11 +164,13 @@ Ext.define('CustomApp', {
         },{
             text: this.columnHeaders['PFeatureID'],
             dataIndex: 'PFeatureID',
+            width: 40,
             tdCls: 'tspredecessor',
         },{
             xtype: 'templatecolumn',
             text: this.columnHeaders['PFormattedID'],
             dataIndex: 'PFormattedID',
+            width: 75,
             tpl: tpl_predecessor_formattedid,
             tdCls: 'tspredecessor'
         },{
