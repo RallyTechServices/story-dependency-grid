@@ -7,14 +7,16 @@ Ext.define('CustomApp', {
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
-    storeFetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors'],
-    predecessorFetch: ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration','StartDate','EndDate'],
+    storeFetch: ['ObjectID','FormattedID','Name','Project','ScheduleState','Iteration', 'StartDate','EndDate','Predecessors', 'Feature'],
+    predecessorFetch: ['FormattedID','Name','Project','Blocked','ScheduleState','Iteration','StartDate','EndDate','Feature'],
     columnHeaders: {
+        Feature: 'Feature ID',
         FormattedID: 'ID',
         Name: 'Name',
         Project: 'Project',
         Iteration: 'Iteration',
         ScheduleState: 'State',
+        PFeatureID: 'Predecessor Feature ID',
         PFormattedID: 'Predecessor ID',
         PName: 'Name',
         PProject: 'Project',
@@ -109,6 +111,15 @@ Ext.define('CustomApp', {
         })
         
         var columns = [{
+            text: 'Feature ID',
+            dataIndex: 'Feature',
+            renderer: function(v,m,r){                
+                if (r.get('Feature')){
+                    return r.get('Feature').FormattedID;
+                }
+                return '';
+            }
+        },{
             scope: this,
             xtype: 'templatecolumn',
             text: this.columnHeaders['FormattedID'],
@@ -136,6 +147,10 @@ Ext.define('CustomApp', {
             renderer: function(v,m,r){
                 return r.get('Project').Name;
             }
+        },{
+            text: this.columnHeaders['PFeatureID'],
+            dataIndex: 'PFeatureID',
+            tdCls: 'tspredecessor',
         },{
             xtype: 'templatecolumn',
             text: this.columnHeaders['PFormattedID'],
@@ -201,7 +216,7 @@ Ext.define('CustomApp', {
                 promises.push(store.load());
                 var story = {};
                 Ext.each(story_fetch, function(field){
-                    story[field] = d.get(field);
+                  story[field] = d.get(field);
                 },this);
                 story['_ref']=d.get('_ref'); //Need this for the renderer to work properly
                 stories.push(story);
@@ -249,7 +264,10 @@ Ext.define('CustomApp', {
                     for (var i=0; i<stories.length; i++){ 
                         for (var j=0; j<return_data[i].length; j++){
                             var predecessor_rec = Ext.clone(stories[i]);
-                            
+                            predecessor_rec['PFeatureID'] = '';
+                            if (return_data[i][j].get('Feature')){
+                                predecessor_rec['PFeatureID'] = return_data[i][j].get('Feature').FormattedID;
+                            }
                             predecessor_rec['PFormattedID'] = return_data[i][j].get('FormattedID');
                             predecessor_rec['PName'] = return_data[i][j].get('Name');
                             predecessor_rec['PProject'] = return_data[i][j].get('Project');
