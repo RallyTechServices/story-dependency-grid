@@ -32,6 +32,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         document.body.removeChild(event.target);
     },
     convertDataArrayToCSVText: function(data_array, requestedFieldHash){
+       
         var text = '';
         Ext.each(Object.keys(requestedFieldHash), function(key){
             text += requestedFieldHash[key] + ',';
@@ -42,10 +43,16 @@ Ext.define('Rally.technicalservices.FileUtilities', {
             Ext.each(Object.keys(requestedFieldHash), function(key){
                 if (d[key]){
                     if (typeof d[key] === 'object'){
-                        text += Ext.String.format("\"{0}\",",d[key].Name );                    
+                        if (d[key].FormattedID) {
+                            text += Ext.String.format("\"{0}\",",d[key].FormattedID ); 
+                        } else {
+                            text += Ext.String.format("\"{0}\",",d[key].Name );                    
+                        }
                     } else {
                         text += Ext.String.format("\"{0}\",",d[key] );                    
                     }
+                } else {
+                    text += ',';
                 }
             },this);
             text = text.replace(/,$/,'\n');
